@@ -1,0 +1,45 @@
+public class PlayerCharacter : MonoBehaviour
+    {
+        public int player_id;
+
+        [Header("Stats")]
+        public float max_hp = 100f;
+
+        [Header("Status")]
+        public bool invulnerable = false;
+
+        [Header("Movement")]
+        public float move_accel = 1f;
+        public float move_deccel = 1f;
+        public float move_max = 1f;
+        
+        
+        void OnDestroy()
+        {
+            character_list.Remove(player_id);
+        }
+
+        void Start()
+        {
+
+        }
+
+        //Handle physics
+        void FixedUpdate()
+        {
+            if (is_dead)
+                return;
+
+            //Movement velocity
+            float desiredSpeed = Mathf.Abs(move_input.x) > 0.1f ? move_input.x * move_max : 0f;
+            float acceleration = Mathf.Abs(move_input.x) > 0.1f ? move_accel : move_deccel;
+            acceleration = !is_grounded ? jump_move_percent * acceleration : acceleration;
+            move.x = Mathf.MoveTowards(move.x, desiredSpeed, acceleration * Time.fixedDeltaTime);
+
+            UpdateFacing();
+            UpdateJump();
+            UpdateCrouch();
+
+            //Move
+            rigid.velocity = move;
+        }
