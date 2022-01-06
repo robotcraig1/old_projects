@@ -1,0 +1,186 @@
+#region Using Statements
+using System;
+using System.Collections.Generic;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Audio;
+using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Storage;
+#endregion
+
+namespace WarFog
+{
+    /// <summary>
+    /// This is the main type for your game
+    /// </summary>
+    public class Game1 : Microsoft.Xna.Framework.Game
+    {
+        GraphicsDeviceManager graphics;
+        SpriteBatch spriteBatch;
+        Texture2D viewField;
+        
+        static public RenderTarget2D fogOfWarRT;
+
+
+        static private ContentManager content;
+
+        public static ContentManager Content
+        {
+            get { return content; }
+            set { content = value; }
+        }
+
+
+        static private Random random = new Random();
+
+        static public Random Random
+        {
+            get { return random; }
+            set { random = value; }
+        }
+
+
+        List<SphereComponent> entities;
+	
+        public Game1()
+        {
+            graphics = new GraphicsDeviceManager(this);
+            content = new ContentManager(Services);
+        }
+
+
+        /// <summary>
+        /// Allows the game to perform any initialization it needs to before starting to run.
+        /// This is where it can query for any required services and load any non-graphic
+        /// related content.  Calling base.Initialize will enumerate through any components
+        /// and initialize them as well.
+        /// </summary>
+        protected override void Initialize()
+        {
+
+            // TODO: Add your initialization logic here
+            Camera camera = new Camera(this);
+
+
+            TerrainComponent tc = new TerrainComponent(this);
+            tc.Camera = camera;
+
+            entities = new List<SphereComponent>(12);
+
+            for (int i = 0; i < 12; i++)
+            {
+                SphereComponent sc = new SphereComponent(this, (i%2==0));
+                sc.Camera = camera;
+                this.Components.Add(sc);
+                entities.Add(sc);
+            }
+            
+
+
+            this.Components.Add(tc);
+            this.Components.Add(camera);
+            base.Initialize();
+        }
+
+
+        /// <summary>
+        /// Load your graphics content.  If loadAllContent is true, you should
+        /// load content from both ResourceManagementMode pools.  Otherwise, just
+        /// load ResourceManagementMode.Manual content.
+        /// </summary>
+        /// <param name="loadAllContent">Which type of content to load.</param>
+        protected override void LoadGraphicsContent(bool loadAllContent)
+        {
+            if (loadAllContent)
+            {
+                spriteBatch = new SpriteBatch(graphics.GraphicsDevice);
+                viewField = content.Load<Texture2D>("view");
+                fogOfWarRT = new RenderTarget2D(graphics.GraphicsDevice, 512, 512, 1, SurfaceFormat.Color);
+            }
+
+            // TODO: Load any ResourceManagementMode.Manual content
+        }
+
+
+        /// <summary>
+        /// Unload your graphics content.  If unloadAllContent is true, you should
+        /// unload content from both ResourceManagementMode pools.  Otherwise, just
+        /// unload ResourceManagementMode.Manual content.  Manual content will get
+        /// Disposed by the GraphicsDevice during a Reset.
+        /// </summary>
+        /// <param name="unloadAllContent">Which type of content to unload.</param>
+        protected override void UnloadGraphicsContent(bool unloadAllContent)
+        {
+            if (unloadAllContent)
+            {
+                // TODO: Unload any ResourceManagementMode.Automatic content
+                content.Unload();
+            }
+
+            // TODO: Unload any ResourceManagementMode.Manual content
+        }
+
+
+        /// <summary>
+        /// Allows the game to run logic such as updating the world,
+        /// checking for collisions, gathering input and playing audio.
+        /// </summary>
+        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        protected override void Update(GameTime gameTime)
+        {
+            // Allows the game to exit
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed)
+                this.Exit();
+
+            // TODO: Add your update logic here
+
+            base.Update(gameTime);
+        }
+
+        protected void DrawFogMap()
+        {
+            RenderTarget oldRT = graphics.GraphicsDevice.GetRenderTarget(0);
+            graphics.GraphicsDevice.SetRenderTarget(0, fogOfWarRT);
+
+            graphics.GraphicsDevice.Clear(Color.Black);
+            spriteBatch.Begin(SpriteBlendMode.Additive, SpriteSortMode.Immediate,SaveStateMode.SaveState);
+
+            foreach (SphereComponent entity in entities)
+            {
+                if (!entity.IsEnemy)
+                {
+                    Rectangle destRect = new Rectangle();
+                    destRect.X = (int)(entity.Position.X/2.0f) - 70;
+                    destRect.Y = (int)(entity.Position.Z/2.0f) - 70;
+                    destRect.Width = 140;
+                    destRect.Height = 140;
+                    spriteBatch.Draw(viewField, destRect, Color.White);
+                }
+            }
+            
+            spriteBatch.End();
+            graphics.GraphicsDevice.ResolveRenderTarget(0);
+            graphics.GraphicsDevice.SetRenderTarget(0, oldRT as RenderTarget2D);
+        
+        }
+
+        /// <summary>
+        /// This is called when the game should draw itself.
+        /// </summary>
+        /// <param name="gameTime">Provides a snapshot of timing values.</param>
+        protected override void Draw(GameTime gameTime)
+        {
+
+            DrawFogMap();
+            graphics.GraphicsDevice.Clear(Color.CornflowerBlue);
+            base.Draw(gameTime);
+
+            // TODO: Add your drawing code here
+            spriteBatch.Begin(SpriteBlendMode.None);
+            spriteBatch.Draw(fogOfWarRT.GetTexture(), new Rectangle(0, 0, 128, 128), Color.White);
+            spriteBatch.End();
+            
+        }
+    }
+}
