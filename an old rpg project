@@ -1,0 +1,467 @@
+//
+//  HelloWorldLayer.h
+//  2dgame
+//
+//  Created by Craig Martell on 25/11/2010.
+//  Copyright __MyCompanyName__ 2010. All rights reserved.
+//
+
+
+// When you import this file, you import all the cocos2d classes
+#import "cocos2d.h"
+
+// HelloWorld Layer
+@interface HelloWorld : CCLayer
+{
+	CCTMXTiledMap * theMap1;
+	CCTMXLayer * bgLayer;
+	CCSprite * dude;
+	CCTMXLayer * stLayer;
+	
+}
+
+
+@property (nonatomic, retain )  CCTMXTiledMap * theMap1;
+@property (nonatomic, retain )	CCTMXLayer * bgLayer;
+@property (nonatomic, retain )	CCSprite * dude;
+@property (nonatomic, retain )	CCTMXLayer * stLayer;
+
+// returns a Scene that contains the HelloWorld as the only child
++(id) scene;
+-(void) setPlayerPosition:(CGPoint)position;
+-(void) setCenterOfSceen: (CGPoint) position;
+-(void) registerWidthTouchDispatcher;
+-(CGPoint)tileCoordForPosition:(CGPoint)position;
+
+@end
+
+
+The main code
+//
+//  HelloWorldLayer.m
+//  2dgame
+//
+//  Created by Craig Martell on 25/11/2010.
+//  Copyright __MyCompanyName__ 2010. All rights reserved.
+//
+
+// Import the interfaces
+#import "HelloWorldScene.h"
+#import "CCTouchDispatcher.h"
+
+
+CCSprite * dude;
+
+// HelloWorld implementation
+@implementation HelloWorld
+@synthesize theMap1;
+@synthesize bgLayer;
+@synthesize dude;
+@synthesize stLayer;
+
++(id) scene
+{
+	// 'scene' is an autorelease object.
+	CCScene *scene = [CCScene node];
+	
+	// 'layer' is an autorelease object.
+	HelloWorld *layer = [HelloWorld node];
+	
+	// add layer as a child to scene
+	[scene addChild: layer];
+	
+	// return the scene
+	return scene;
+}
+
+// on "init" you need to initialize your instance
+-(id) init
+{
+	// always call "super" init
+	// Apple recommends to re-assign "self" with the "super" return value
+	if( (self=[super init] )) {
+		
+		self.isTouchEnabled = YES; 
+		
+		
+		
+		self.theMap1 =[CCTMXTiledMap tiledMapWithTMXFile:@"themap.tmx"];
+		self.bgLayer = [theMap1 layerNamed:@"bg"];
+		
+		self.stLayer = [theMap1 layerNamed:@"st"];
+		stLayer.visible = NO;
+		
+		
+		CCTMXObjectGroup * objects = [theMap1 objectGroupNamed :@"oj"];
+		
+		
+		
+		NSMutableDictionary * startpiont = [objects objectNamed:@"startpiont"];
+		int x =[[startpiont valueForKey:@"x"]intValue];
+		int y =[[startpiont valueForKey:@"y"]intValue];
+		
+		
+		self.dude = [CCSprite spriteWithFile:@"Naruto.png"];
+		dude.position = ccp(x,y);
+		[self addChild: dude];
+		
+		[self setCenterOfSceen:dude.position];
+		
+		[self addChild:theMap1 z:-1];
+		[[CCTouchDispatcher sharedDispatcher] addTargetedDelegate:self priority:0 swallowsTouches:YES]; 
+		
+	}
+	return self;
+}
+
+
+-(void) setCenterOfSceen: (CGPoint) position{
+	CGSize screenSize = [[CCDirector sharedDirector ]winSize];
+	
+	int x = MAX (position.x, screenSize.width/2);
+	int y = MAX (position.y, screenSize.height/2);
+	
+	x = MIN (x, theMap1.mapSize.width * theMap1.tileSize.width - screenSize.width/2);
+	y = MIN (y, theMap1.mapSize.height * theMap1.tileSize.height - screenSize.height/2);
+	CGPoint goodPoint = ccp(x,y);
+	
+	CGPoint centerOfScreen = ccp(screenSize.width/2, screenSize.height/2);
+	CGPoint difference = ccpSub (centerOfScreen, goodPoint);
+	self.position = difference;
+	
+	
+	
+}
+
+// on "dealloc" you need to release all your retained objects
+- (void) dealloc
+{
+
+	self.theMap1 = nil;
+	self.bgLayer = nil;
+	self.dude =nil;
+	self.stLayer = nil;
+	
+	[super dealloc];
+}
+-(void) registerWidthTouchDispatcher{
+	  [[CCTouchDispatcher sharedDispatcher] addTargetedDelegate:self priority:0 swallowsTouches:YES]; 
+
+}
+
+
+-(BOOL) ccTouchBegan: (UITouch *) touch withEvent:(UIEvent *)event{
+	return YES;	
+}
+-(void) ccTouchEnded:(UITouch *)touch withEvent:(UIEvent *)event{
+	
+		CGPoint touchLocation = [touch locationInView:[touch view]];
+		touchLocation = [[CCDirector sharedDirector]convertToGL:touchLocation];
+		touchLocation = [self convertToNodeSpace:touchLocation];
+		
+		CGPoint playerPos = dude.position;
+		CGPoint diff = ccpSub(touchLocation, playerPos);
+		
+		
+		//move horizontal or vertical?
+		
+		if(abs(diff.x)> abs(diff.y)){
+			
+			if(diff.x>0){
+				playerPos.x += theMap1.tileSize.width;
+			} else {
+				playerPos.x -= theMap1.tileSize.width;
+			}
+			
+		} else {
+			if (diff.y >0) {
+				playerPos.y += theMap1.tileSize.height;
+			} else {
+				playerPos.y -= theMap1.tileSize.height;
+			}
+			
+		}
+		//make sure the new poition inst off the map
+		
+		if (playerPos.x <= (theMap1.mapSize.width * theMap1.tileSize.width)&&
+			playerPos.y <= (theMap1.mapSize.height * theMap1.tileSize.height)&&
+			playerPos.y >= 0 &&
+			playerPos.x >= 0)
+		{
+			[self setPlayerPosition:playerPos];
+		}
+		
+		[self setCenterOfSceen:dude.position];	
+}
+
+	
+
+
+
+-(void) setPlayerPosition:(CGPoint)position
+{
+	CGPoint tileCoord = [self tileCoordForPosition:position];	
+	int tileGid = [stLayer tileGIDAt:tileCoord];
+	
+	if(tileGid){
+		
+		NSDictionary * properties = [theMap1 propertiesForGID:tileGid];
+		
+		if(properties){
+			NSString * collision = [properties valueForKey:@"Collidable"];	
+			if(collision && [collision compare:@"True"]==NSOrderedSame){
+				return;
+			}
+		}
+	}
+	
+	dude.position = position;
+}
+
+-(CGPoint)tileCoordForPosition:(CGPoint)position{
+	int x = position.x/theMap1.tileSize.width;
+	int y = ((theMap1.mapSize.height * theMap1.tileSize.height )-position.y)/theMap1.tileSize.height;
+	return ccp(x,y);
+}
+
+
+
+@end
+
+
+
+//
+//  TextBoxLayer.h
+//  TextBoxLayerSample
+
+
+#import <Foundation/Foundation.h>
+#import "cocos2d.h"
+
+#define TEXT_SPEED 60
+#define TEXT_FONT_FILE @"arial16.fnt"
+
+@class TextBoxLayer;
+
+@protocol TextBoxDelegate <NSObject>
+
+- (void)textBox:(TextBoxLayer *)tbox 
+	didFinishAllTextWithPageCount:(int)pc;
+
+@optional
+- (void)textBox:(TextBoxLayer *)tbox didMoveToPage:(int)p;
+
+@end
+
+
+@interface TextBoxLayer : CCLayerColor {
+	
+	CCLabelBMFont *textLabel;
+	
+	NSString *text;
+	NSMutableArray *lines;
+	
+	float progress;
+	int linesPerPage;
+	int currentPageIndex;
+	NSMutableString *currentPage;
+	int currentPageCharCount;
+	
+	int totalPages;
+	
+	id<TextBoxDelegate> delegate;
+	
+	BOOL ended;
+}
+
+@property (readwrite,retain) id<TextBoxDelegate> delegate;
+
+- (id) initWithColor:(ccColor4B)color 
+			   width:(GLfloat)w 
+			  height:(GLfloat)h 
+			 padding:(GLfloat)padding 
+				text:(NSString *)txt;
+
+- (void)update:(float)dt;
+
+- (NSString *)nextPage;
+
+- (int)calculateStringSize:(NSString *)txt;
+
+@end
+//
+//  TextBoxLayer.m
+//  TextBoxLayerSample
+//
+
+
+#import "TextBoxLayer.h"
+
+@implementation TextBoxLayer
+
+@synthesize delegate;
+
+- (id) initWithColor:(ccColor4B)color width:(GLfloat)w height:(GLfloat)h padding:(GLfloat)padding text:(NSString *)txt {
+	if ((self = [super initWithColor:color width:w + (padding * 2) height:h + (padding * 2)])) {
+		
+		self.isTouchEnabled = YES;
+		
+		ended = NO;
+		currentPageIndex = 0;
+		
+		CCBMFontConfiguration *conf = FNTConfigLoadFile(TEXT_FONT_FILE);
+		linesPerPage = h / conf->commonHeight_;
+		
+		NSArray *words = [txt componentsSeparatedByString:@" "];
+		
+		NSMutableString *wrappedText = [NSMutableString string];
+		
+		lines = [[NSMutableArray alloc] init];
+		
+		for (NSString *word in words) {
+			NSString *eval = [wrappedText stringByAppendingFormat:@" %@", word];
+			int size = [self calculateStringSize:eval];
+			
+			// See if the text so far plus the new word fits the rect
+			if (size > w) {
+				
+				// If not, closes this line and starts a new one
+				[lines addObject:[NSString stringWithString:wrappedText]];
+				[wrappedText setString:word];
+			} else {
+				[wrappedText appendFormat:@" %@", word];
+			}
+		}
+		[lines addObject:[NSString stringWithString:wrappedText]];
+		
+		totalPages = ceil((float)[lines count] / linesPerPage);
+		
+		text = [txt retain];
+		
+		textLabel = [CCLabelBMFont labelWithString:[self nextPage] fntFile:TEXT_FONT_FILE];
+		textLabel.anchorPoint = ccp(0,1);
+		textLabel.position = ccp(padding, h + padding);
+		
+		// Hides all characters in the label
+		for (CCNode *node in textLabel.children) {
+			CCSprite *charSpr = (CCSprite *)node;
+			charSpr.opacity = 0;
+		}
+		
+		[self addChild:textLabel];
+	}
+	return self;
+}
+
+- (void)dealloc {
+	[text release];
+	[lines release];
+	[currentPage release];
+	[super dealloc];
+}
+
+- (void)update:(float)dt {
+	
+	progress += (dt * TEXT_SPEED);
+	
+	int visible = progress;
+	
+	if (visible > currentPageCharCount) {
+		progress = visible = currentPageCharCount;
+	}
+	
+	// Each character sprite is assigned a tag corresponding to its index in the string,
+	// and even though line-breaks are skipped, they are still counted for tag purposes.
+	// Therefore, we use an offset so that the tag is correct.
+	int offset = 0;
+	
+	for (int i = 0; i < visible; i++) {
+		
+		if ([currentPage characterAtIndex:i + offset] == '\n') {
+			offset++;
+		}
+		
+		CCSprite *charSpr = (CCSprite *) [textLabel getChildByTag:i + offset];
+		charSpr.opacity = 255;
+	}
+}
+
+- (NSString *)nextPage {
+	progress = 0;
+	
+	[currentPage release];
+	currentPage = [[NSMutableString string] retain];
+	
+	currentPageCharCount = 0;
+	
+	int line = currentPageIndex * linesPerPage;
+	
+	int i = 0;
+	while (i < linesPerPage && line < [lines count]) {
+		[currentPage appendFormat:@"%@\n", [lines objectAtIndex:line]];
+		currentPageCharCount += [[lines objectAtIndex:line] length];
+		i++;
+		line++;
+	}
+	currentPageIndex++;
+	
+	return currentPage;
+}
+
+- (int)calculateStringSize:(NSString *)txt {
+	
+	CCBMFontConfiguration *conf = FNTConfigLoadFile(TEXT_FONT_FILE);
+	
+	int totalSize = 0;
+	
+	for (int i = 0; i < [txt length]; i++) {
+		
+		int c = [txt characterAtIndex:i];
+		ccBMFontDef def = conf->BMFontArray_[c];
+		totalSize += def.xAdvance;
+	}
+	
+	return totalSize;
+}
+
+-(void) ccTouchesEnded:(NSSet *)touches withEvent:(UIEvent *)event {
+	
+	if (progress < currentPageCharCount) {
+		
+		for (CCNode *node in textLabel.children) {
+			CCSprite *charSpr = (CCSprite *)node;
+			charSpr.opacity = 255;
+		}
+		progress = currentPageCharCount;
+		
+	} else {
+		 
+		if (currentPageIndex < totalPages) {
+			[textLabel setString:[self nextPage]];
+			
+			for (CCNode *node in textLabel.children) {
+				CCSprite *charSpr = (CCSprite *)node;
+				charSpr.opacity = 0;
+			}
+			
+			if ([delegate respondsToSelector:@selector(textBox:didMoveToPage:)]) {
+				[delegate textBox:self didMoveToPage:currentPageIndex];
+			}
+			
+		} else {
+			
+			if (!ended) {
+				ended = YES;
+				
+				if ([delegate respondsToSelector:@selector(textBox:didFinishAllTextWithPageCount:)]) {
+					[delegate textBox:self didFinishAllTextWithPageCount:totalPages];
+				}
+			}
+		}
+	}
+}
+
+@end
+
+
+8.3 Appendis C Notes
